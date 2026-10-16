@@ -3,15 +3,29 @@
  * Inline projection of sent user text: decoration adds no block containers,
  * preserves whitespace, and folds wire session forms to their label.
  */
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
 import type { ComponentProps } from 'react'
 import { UserText } from '../src/client/user-text/UserText.tsx'
 import { UserTextRegistry } from '../src/client/conversation/user-text-registry.ts'
-import { createUserTextFixture } from './user-text-component-fixture.client.tsx'
+import {
+  resetReferencePathConfirmation, seedReferencePaths, setReferencePathProbe,
+} from '../../ui-reference/src/client/path-confirmation.ts'
+import { createUserTextFixture, USER_TEXT_FIXTURE_SESSION } from './user-text-component-fixture.client.tsx'
 
-afterEach(cleanup)
+// These units assert lexical decoration, so every path they mention is one the Host
+// already listed; confirmation itself is covered by the ui-reference units.
+beforeEach(() => {
+  seedReferencePaths(USER_TEXT_FIXTURE_SESSION, [
+    'src/deep/file.txt', 'dir/', 'a b.md', '/', 'src/a.ts', 'notes a.md', 'dir a/', 'notes.md',
+  ])
+})
+afterEach(() => {
+  cleanup()
+  setReferencePathProbe(undefined)
+  resetReferencePathConfirmation()
+})
 
 function textView(
   text: string,

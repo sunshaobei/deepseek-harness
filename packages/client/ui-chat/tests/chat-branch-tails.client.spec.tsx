@@ -19,6 +19,8 @@ import { AssistantMarkdown } from '../src/client/chat/AssistantMarkdown.tsx'
 import { useDetailedPresentation } from './presentation-fixture.client.ts'
 import { unusedImageLoader } from './reasoning-component-fixture.tsx'
 import { createUserContentFixture } from './user-content-component-fixture.tsx'
+import { resetReferencePathConfirmation, seedReferencePaths } from '../../ui-reference/src/client/path-confirmation.ts'
+import { USER_TEXT_FIXTURE_SESSION } from '../../ui-conversation/tests/user-text-component-fixture.client.tsx'
 import { useDisclosure } from '../src/client/chat/use-disclosure.ts'
 import { useSearchableHidden } from '../src/client/chat/searchable-hidden.ts'
 import { ActivityPill, UsagePill, type StatPillProps } from '../src/client/chat/StatsPills.tsx'
@@ -29,6 +31,7 @@ afterEach(() => {
   cleanup()
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  resetReferencePathConfirmation()
 })
 
 const t: ChatNodeViewProps['t'] = makeTranslate(zh, commonZh)
@@ -137,6 +140,7 @@ describe('MessageItem arms', () => {
   })
 
   it('renders no-extension paths as files and leaves sentence punctuation outside the reference', () => {
+    seedReferencePaths(USER_TEXT_FIXTURE_SESSION, ['Dockerfile', 'src/README.md'])
     const view = render(
       <MessageItem t={t} node={{
         kind: 'user',

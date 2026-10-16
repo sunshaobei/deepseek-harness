@@ -24,6 +24,9 @@ import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import { relativeTime } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { UserTextNodeProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { FileReference, FolderReference, type FileReferenceInjected } from './FileReference.tsx'
+import {
+  resetReferencePathConfirmation, seedReferencePaths, setReferencePathProbe, type ReferencePathProbe,
+} from './path-confirmation.ts'
 import { fileReferenceRule, folderReferenceRule } from './user-text-rules.ts'
 export type {} from './user-text-rules.ts'
 import type {
@@ -56,6 +59,23 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-reference: dictionaries')
   const t = ctx.locale.bind(NS)
   const sessions = ctx.get('sessions') as ISessions
+  // A lexical candidate becomes a chip only once the Host confirms its path, so the
+  // plugin owns that probe and drops its memory with the registration.
+  const probeReferencePath: ReferencePathProbe = async (sessionId, path, kind, signal) => {
+    const wanted = kind === 'folder' ? path.replace(/\/+$/, '') : path
+    if (wanted === '') return false
+    const result = await ctx.remote.fileReferences.list(sessionId, wanted, signal)
+    if (!result.ok) return false
+    const wantedKind = kind === 'folder' ? 'directory' : 'file'
+    return result.value.some(candidate => candidate.kind === wantedKind && candidate.path === wanted)
+  }
+  ctx.effect(() => {
+    setReferencePathProbe(probeReferencePath)
+    return () => {
+      setReferencePathProbe(undefined)
+      resetReferencePathConfirmation()
+    }
+  }, 'ui-reference: confirmed reference paths')
   ctx.uiConversation.userText.register(fileReferenceRule)
   ctx.uiConversation.userText.register(folderReferenceRule)
   ctx.slots.inject('conversation.user.text.node', function* () {
@@ -97,6 +117,11 @@ export function apply(ctx: ClientContext): void {
         },
       )
       if (signal.aborted) return []
+      // The Host produced these rows from a real listing, so the paths they name are
+      // already answered: an inline reference never waits on a second round trip.
+      seedReferencePaths(session.sessionId, fileItems.flatMap(candidate => candidate.kind === 'directory'
+        ? [`${candidate.path}/`]
+        : [candidate.path]))
       // The header already names the directory being listed; rows repeat it only
       // when there is no header to carry it.
       const withLocation = crumbsFor(query, quoted === true, drilled, t) === undefined

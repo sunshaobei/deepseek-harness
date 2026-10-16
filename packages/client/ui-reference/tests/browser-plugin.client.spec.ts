@@ -19,6 +19,7 @@ import type {
 import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
 import type { SessionReferenceMentionCandidate } from '@deepseek-ai/dsh-session-reference/types'
 import { apply, inject } from '../src/client/index.ts'
+import { resetReferencePathConfirmation, setReferencePathProbe } from '../src/client/path-confirmation.ts'
 import { apply as nodeApply } from '../src/index.ts'
 
 const sid = (value: string): SessionId => value as SessionId
@@ -35,7 +36,11 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
 })
-afterEach(() => { vi.useRealTimers() })
+afterEach(() => {
+  vi.useRealTimers()
+  setReferencePathProbe(undefined)
+  resetReferencePathConfirmation()
+})
 
 type RemoteEnvelope<T> =
   | { ok: true; value: T }

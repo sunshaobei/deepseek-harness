@@ -19,11 +19,15 @@ import { sessionReferenceRule } from '../../ui-conversation/src/client/user-text
 import { collapseWhitespaceRule, trimWhitespaceRule } from '../../ui-conversation/src/client/user-text/whitespace-rules.ts'
 import { fileReferenceRule, folderReferenceRule } from '../../ui-reference/src/client/user-text-rules.ts'
 import { FileReference, FolderReference } from '../../ui-reference/src/client/FileReference.tsx'
+import { resetReferencePathConfirmation, seedReferencePaths } from '../../ui-reference/src/client/path-confirmation.ts'
 import { en as referenceEn, zh as referenceZh } from '../../ui-reference/src/client/locales.ts'
 import { skillReferenceRule } from '../../ui-skill/src/client/user-text-rules.ts'
 import { SkillReference } from '../../ui-skill/src/client/SkillReference.tsx'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  resetReferencePathConfirmation()
+})
 
 const image: ImageAttachmentRef = {
   attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
@@ -219,6 +223,8 @@ describe('user Content Factory', () => {
   it('opens file and skill references through their own injectors only in interactive content', async () => {
     const b = await bench()
     const labels = ['Alpha']
+    // The Host listed this path, which is what makes the lexical candidate a chip.
+    seedReferencePaths(SessionId('user-content'), ['src/my file.ts'])
     const content: UserContentData = {
       ...empty, text: 'Read @"src/my file.ts" with /review and @Alpha', referenceLabels: labels,
     }
@@ -235,6 +241,15 @@ describe('user Content Factory', () => {
     expect(b.openFile).toHaveBeenCalledTimes(1)
     expect(b.openSkill).toHaveBeenCalledTimes(1)
     expect(view.container.querySelectorAll('[data-ref-chip]')).toHaveLength(3)
+  })
+
+  it('keeps a lexical @token that names nothing as the text the user typed', async () => {
+    const b = await bench()
+    const text = '发送至会话区 @ceshi 会被着色层文件引用的样式'
+    const view = b.render(b.factory({ content: { ...empty, text }, facts: {}, loadImage: b.loadImage, interactive: true }))
+    expect(view.container.textContent).toBe(text)
+    expect(view.container.querySelectorAll('[data-ref-chip]')).toHaveLength(0)
+    expect(view.queryAllByRole('button')).toHaveLength(0)
   })
 
   it('keeps an empty prepared value empty', async () => {

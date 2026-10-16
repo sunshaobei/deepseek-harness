@@ -3,6 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { createElement, type ComponentProps, type ReactNode } from 'react'
 import { onTestFinished } from 'vitest'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { UserTextInput, UserTextNodeOwnerProps } from '../src/client/contract/slots.ts'
 import type { UserTextNode } from '../src/client/contract/user-text.ts'
@@ -23,6 +24,13 @@ interface UserTextFixtureActions {
   openFile?: (path: string) => void
   openSkill?: (name: string) => void
 }
+
+/**
+ * Session the fixture's inline nodes belong to, exactly as the Slot framework scopes them.
+ * File and folder references render a chip only once this Session's paths are confirmed,
+ * so a unit that asserts a chip seeds them for this identity first.
+ */
+export const USER_TEXT_FIXTURE_SESSION = SessionId('user-text-fixture')
 
 type UserTextProps = ComponentProps<typeof UserText>
 
@@ -51,7 +59,10 @@ export function createUserTextFixture(actions: UserTextFixtureActions = {}): (in
   const t = makeTranslate(referenceZh, commonZh)
   const renderSlot: UserTextProps['renderSlot'] = (name: string, input: object, options?: { fallback?: ReactNode }) => {
     if (name !== 'conversation.user.text.node') throw new Error(`Unexpected UserText Slot: ${name}`)
-    const owner = input as UserTextNodeOwnerProps & { node: UserTextNode }
+    const owner = {
+      ...input as UserTextNodeOwnerProps & { node: UserTextNode },
+      sessionId: USER_TEXT_FIXTURE_SESSION,
+    }
     switch (owner.node.id) {
       // The production components only read these owner, action and locale seats in these units.
       case 'text': return createElement(PlainUserText, owner as ComponentProps<typeof PlainUserText>)

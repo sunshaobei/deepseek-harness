@@ -50,6 +50,7 @@ import { TurnProcessNodeView } from '../src/client/chat/TurnProcessNodeView.tsx'
 import { SystemPromptNodeView } from '../src/client/chat/SystemPromptRow.tsx'
 import { formatRunDuration as durationParts } from '../src/client/chat/message-chrome.ts'
 import { ChatSnapshotBuilder } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'
+import { resetReferencePathConfirmation, setReferencePathProbe } from '../../ui-reference/src/client/path-confirmation.ts'
 import { ProcessState } from '../src/client/conversation-nodes/process-groups.ts'
 import type { TurnProcessSpec } from '../src/client/contract/turn-process.ts'
 import { chatSnapshotFixture } from './chat-snapshot-fixture.client.ts'
@@ -79,6 +80,8 @@ afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  setReferencePathProbe(undefined)
+  resetReferencePathConfirmation()
 })
 // Keyless create() persists under the bare declared key; clear between cases
 // so one harness's selection cannot rehydrate into the next.
@@ -1869,14 +1872,16 @@ describe('ChatView', () => {
     expect(h.forkAt).toHaveBeenCalledWith(3)
   }))
 
-  it('keeps pending file mentions non-interactive until admission enables the reference injector', () => {
+  it('keeps pending file mentions non-interactive until admission enables the reference injector', async () => {
     const pending: InboxState['next-step'][number] = {
       id: MessageId('pending-file-mention'), role: 'user', source: { kind: 'user' },
       content: [{ type: 'text', text: 'Read @src/review.ts' }],
     }
     const h = makeHarness({}, { testInbox: { 'next-turn': [], 'next-step': [pending] }, running: true })
+    // This harness mounts the reference injector, so the Host answers the path probe.
+    setReferencePathProbe(() => Promise.resolve(true))
     const view = render(<h.ChatView {...h.props} />)
-    const mention = view.getByText('review.ts')
+    const mention = await view.findByText('review.ts')
     expect(mention.closest('[data-pending-steering]')).not.toBeNull()
     expect(view.queryByRole('button', { name: 'review.ts' })).toBeNull()
     fireEvent.click(mention)
